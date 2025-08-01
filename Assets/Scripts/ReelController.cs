@@ -14,21 +14,30 @@ public class ReelController : MonoBehaviour
     public LineRenderer lineRenderer;
     
     public  const float DISTTHRESHOLD = 0.05f;
-    public const float MAXLENGTH = 2f;
+    public const float MAXLENGTH = 10f;
     private int MAXVERTICES = (int) ( MAXLENGTH / DISTTHRESHOLD);
     
     
     InputAction mousePosAction;
     InputAction mouseClickAction;
-    
-     
+    private Camera _camera;
+
+
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
+        _camera = Camera.main;
         netPoints = new LinkedList<Vector3>();
         mousePosAction = InputSystem.actions.FindAction("lassoPosition");
         mouseClickAction = InputSystem.actions.FindAction("startLasso");
 
+    }
+
+
+    Vector3 TransformToWorld(Vector2 position)
+    {
+        Vector3 output = new Vector3(position.x,position.y ,_camera.nearClipPlane +2);
+        return _camera.ScreenToWorldPoint(output);
     }
 
     // Update is called once per frame
@@ -36,12 +45,10 @@ public class ReelController : MonoBehaviour
     {
         if (mouseClickAction.IsPressed())
         {
-            Vector3 mousePos = mousePosAction.ReadValue<Vector2>();
+            Vector2 mousePos = mousePosAction.ReadValue<Vector2>();
             
             // transform mouse vector to be aligned to camera position
-            mousePos.z = Camera.main.nearClipPlane +2;
-            
-            addVertex(Camera.main.ScreenToWorldPoint(mousePos));
+            addVertex(mousePos);
             Debug.Log(mousePos);
         }
         
@@ -55,7 +62,13 @@ public class ReelController : MonoBehaviour
         
         // redraw lasso
         lineRenderer.positionCount = netPoints.Count;
-        lineRenderer.SetPositions(netPoints.ToArray());
+        lineRenderer.SetPositions(netPoints.Select(p => TransformToWorld(p)).ToArray());
+    }
+    
+    
+    public Boolean withinSelection(Vector3 position)
+    {
+        return polygonCollider.OverlapPoint(_camera.WorldToScreenPoint(position));
     }
     
     void addVertex(Vector3 pos)
@@ -68,6 +81,7 @@ public class ReelController : MonoBehaviour
         }
        
     }
+    
 
     
 }
