@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -12,7 +13,9 @@ public class ReelController : MonoBehaviour
 {
     LinkedList<Vector2> netPoints;
     public Vector2? collisionPoint;
-    public PolygonCollider2D polygonCollider;
+	public Vector2? laterCollisionPoint;
+
+     PolygonCollider2D polygonCollider;
     public LineRenderer lineRenderer;
     
     
@@ -22,6 +25,26 @@ public class ReelController : MonoBehaviour
     const float DISTTHRESHOLD = 1f;
     const float MAXLENGTH = 350f;
     private int MAXVERTICES = (int) ( MAXLENGTH / DISTTHRESHOLD);
+    
+    public event EventHandler<LassoCreationEventArg> OnLassoCreation;
+    public event EventHandler<LassoCreationEventArg> OnLassoPreview;
+
+    public class LassoCreationEventArg : EventArgs
+    {
+        private PolygonCollider2D lassoArea;
+        private Camera _camera;
+
+        public LassoCreationEventArg(PolygonCollider2D lassoArea, Camera camera)
+        {
+            this.lassoArea = lassoArea;
+            _camera = camera;
+        }
+
+        public Boolean withinBounds(Vector3 position)
+        {
+            return lassoArea.OverlapPoint(_camera.WorldToScreenPoint(position));
+        }
+    }
     
     
     InputAction mousePosAction;
@@ -37,6 +60,7 @@ public class ReelController : MonoBehaviour
         mousePosAction = InputSystem.actions.FindAction("lassoPosition");
         mouseClickAction = InputSystem.actions.FindAction("startLasso");
         baseLineColor = lineRenderer.colorGradient;
+        polygonCollider = GetComponent<PolygonCollider2D>();
 
     }
 
@@ -48,8 +72,36 @@ public class ReelController : MonoBehaviour
     }
 
 
-    
+    List<Vector2> TrimNetEdges()
+
+    {
+        if (collisionPoint != null && laterCollisionPoint != null)
+        {
+            List<Vector2> filteredPoints = new List<Vector2>();
+            var linkedlist = netPoints.First;
+
+            Boolean available = false;
+            //trim to last collision point
+            while (linkedlist.Value != laterCollisionPoint)
+            {
+                //trim to first collision
+                if (linkedlist.Value == collisionPoint)
+                    available = true;
+                if (available) filteredPoints.Add(linkedlist.Value);
+                linkedlist = linkedlist.Next;
+            }
+
+            filteredPoints.Add(linkedlist.Value);
+            return filteredPoints;
+        }
         
+        throw new InvalidDataException();
+    }
+    
+
+
+
+
     // checks whether 3 points are in counter clockwise order
     //I copied this code from a random blogpost guys don't ask me how it works 
     private bool ccOrder(Vector2 a, Vector2 b, Vector2 c)
@@ -71,6 +123,8 @@ public class ReelController : MonoBehaviour
         if (mouseClickAction.IsPressed())
         {
             Vector2 mousePos = mousePosAction.ReadValue<Vector2>();
+            
+            //add vertices to lasso until it is close enough to the mouse
             while (addVertex(mousePos))
             {
 
@@ -80,9 +134,7 @@ public class ReelController : MonoBehaviour
                     //check whether new line closes the shape 
                     Vector2 z1 = netPoints.Last.Previous.Value;
                     Vector2 z2 = netPoints.Last.Value;
-
-
-
+                    
                     var a1 = netPoints.First;
 
                     //iterate through all line segments to check for any collisions
@@ -92,6 +144,7 @@ public class ReelController : MonoBehaviour
                         if (intersect(a1.Value, a2, z1, z2))
                         {
                             collisionPoint = a1.Value;
+							laterCollisionPoint = z2;
                             break;
                         }
 
@@ -100,19 +153,37 @@ public class ReelController : MonoBehaviour
                 }
             }
 
+            //
+            if (collisionPoint != null && laterCollisionPoint != null)
+            {
 
-
-            //  Debug.Log(mousePos);
+                polygonCollider.points = TrimNetEdges().Select(p => new Vector2(p.x, p.y)).ToArray();
+            }
+            else
+            {
+                
+                polygonCollider.points = new Vector2[] {new Vector2(1,1)};
+            }
+            OnLassoPreview?.Invoke(this, new LassoCreationEventArg(polygonCollider,_camera));
         }
         
         
-        if (mouseClickAction.WasReleasedThisFrame())
+        if (mouseClickAction.WasReleasedThisFrame() )
         {
             
             //find whether this creates a closed shape
             // if shape is closed: trim edges and create polygon collider
+
+            if (collisionPoint != null && laterCollisionPoint != null)
+            {
+                
+                polygonCollider.points = TrimNetEdges().Select(p =>  new Vector2(p.x, p.y)).ToArray();
+                OnLassoCreation?.Invoke(this, new LassoCreationEventArg(polygonCollider,_camera));
+            }
+            collisionPoint = null;
+            laterCollisionPoint = null;
             
-            polygonCollider.points = netPoints.Select(p =>  new Vector2(p.x, p.y)).ToArray(); ;
+            
             netPoints.Clear();
         }
         
@@ -125,10 +196,7 @@ public class ReelController : MonoBehaviour
     }
     
     
-    public Boolean withinSelection(Vector3 position)
-    {
-        return polygonCollider.OverlapPoint(_camera.WorldToScreenPoint(position));
-    }
+
     
     Boolean addVertex(Vector2 pos)
     {
@@ -149,7 +217,9 @@ public class ReelController : MonoBehaviour
             {
                 var first = netPoints.First?.Value; 
                 if (first == collisionPoint) 
-                    collisionPoint = null;
+
+                    {collisionPoint = null;
+					laterCollisionPoint = null;}
                 netPoints.RemoveFirst();
             }
 
