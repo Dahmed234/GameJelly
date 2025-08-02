@@ -23,7 +23,7 @@ public class ReelController : MonoBehaviour
     public Gradient alternateLineColor;
     
     const float DISTTHRESHOLD = 1f;
-    const float MAXLENGTH = 350f;
+    const float MAXLENGTH = 500f;
     private int MAXVERTICES = (int) ( MAXLENGTH / DISTTHRESHOLD);
     
     public event EventHandler<LassoCreationEventArg> OnLassoCreation;
@@ -67,7 +67,7 @@ public class ReelController : MonoBehaviour
 
     Vector3 TransformToWorld(Vector2 position)
     {
-        Vector3 output = new Vector3(position.x,position.y ,_camera.nearClipPlane +2);
+        Vector3 output = new Vector3(position.x,position.y ,_camera.nearClipPlane +5);
         return _camera.ScreenToWorldPoint(output);
     }
 
