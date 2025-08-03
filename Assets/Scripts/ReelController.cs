@@ -23,7 +23,7 @@ public class ReelController : MonoBehaviour
     public Gradient alternateLineColor;
     
     const float DISTTHRESHOLD = 1f;
-    const float MAXLENGTH = 500f;
+    const float MAXLENGTH = 800f;
     private int MAXVERTICES = (int) ( MAXLENGTH / DISTTHRESHOLD);
     
     public event EventHandler<LassoCreationEventArg> OnLassoCreation;

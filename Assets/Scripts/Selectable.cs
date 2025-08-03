@@ -1,13 +1,17 @@
 using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Object = System.Object;
 
 public  class Selectable : MonoBehaviour
 {
-    public MeshRenderer meshRenderer;
+    public SkinnedMeshRenderer meshRenderer;
     InputAction moveAction;
     Material unselectedMaterial;
     public Material selectedMaterial;
+    
+    
+    public event EventHandler onFishCaught;
     
     public ReelController reelController;
     
@@ -39,7 +43,11 @@ public  class Selectable : MonoBehaviour
 
     void onLassoCreation()
     {
-        Debug.Log("I ATE");
+        
+        onFishCaught?.Invoke(this, EventArgs.Empty);
+        reelController.OnLassoCreation -= TestLassoCreation;
+        reelController.OnLassoPreview -= TestLassoPreview;
+        GameObject.Destroy(this.gameObject);
     }
 
     void onLassoPreview(Boolean within)
